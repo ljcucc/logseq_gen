@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Iterator
 
 # --- Constants ---
-ROOT_DIR = Path(__file__).parent.resolve()
+ROOT_DIR = Path(os.getcwd()).resolve()
 ASSETS_DIR = ROOT_DIR / "assets"
 PAGES_DIR = ROOT_DIR / "pages"
 GENERATED_MARKER = "generated:: true"
@@ -52,22 +52,21 @@ def process_ini_file(ini_path: Path):
     config.read(ini_path, encoding='utf-8')
 
     # 1. Validate header and get content file path
-    if not config.has_option("header", "content"):
-        raise ValueError("Missing 'content' option in [header] section.")
-
-    content_filename = config.get("header", "content").strip('"' )
-    content_filepath = ini_path.parent / content_filename
-
-    if not content_filepath.exists():
-        raise FileNotFoundError(f"Content file '{content_filepath}' not found.")
 
     # 2. Read content and properties
-    md_content = content_filepath.read_text(encoding='utf-8')
     properties = [f"{key}:: {value}" for key, value in config.items("properties")]
 
     # 3. Construct the output content
     output_content = [GENERATED_MARKER, *properties]
-    final_content = "\n".join(output_content) + "\n\n" + md_content
+    final_content = "\n".join(output_content) + "\n\n"
+
+    if config.has_option("header", "content"):
+      content_filename = config.get("header", "content").strip('"' )
+      content_filepath = ini_path.parent / content_filename
+
+      if not content_filepath.exists():
+          raise FileNotFoundError(f"Content file '{content_filepath}' not found.")
+      final_content = final_content + content_filepath.read_text(encoding='utf-8')
 
     # 4. Determine output path and write file
     relative_path = ini_path.parent.relative_to(ASSETS_DIR)
