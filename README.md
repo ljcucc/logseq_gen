@@ -62,8 +62,6 @@ property_c:: 30
 
 ## Installation
 
-_Describe how users can install your project. For example, if it's a Python script, mention cloning the repository and any dependencies._
-
 ```bash
 # Example:
 git clone https://github.com/ljcucc/logseq_gen.git
@@ -72,8 +70,6 @@ cd logseq_gen
 ```
 
 ## Usage
-
-_Explain how to use the tool. Provide command-line examples if applicable._
 
 ```bash
 # Example:
