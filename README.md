@@ -71,10 +71,16 @@ cd logseq_gen
 
 ## Usage
 
+First, ensure you have Go installed on your system.
+
+To build the Markdown files:
 ```bash
-# Example:
-python generate.py build
-python generate.py clear
+go run main.go build
+```
+
+To clear any previously generated files:
+```bash
+go run main.go clear
 ```
 
 ## License
