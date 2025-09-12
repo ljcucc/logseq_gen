@@ -71,17 +71,34 @@ cd logseq_gen
 
 ## Usage
 
-First, ensure you have Go installed on your system.
+First, ensure you have Go installed on your system. You can run the tool from anywhere within your project.
 
 To build the Markdown files:
 ```bash
-go run main.go build
+go run /path/to/main.go build
 ```
 
 To clear any previously generated files:
 ```bash
-go run main.go clear
+go run /path/to/main.go clear
 ```
+
+## Configuration
+
+The tool is configured via a `generate.ini` file. The script automatically searches for this file in the current directory and its subdirectories to determine the project root and configure the input and output paths.
+
+Here is an example `generate.ini`:
+
+```ini
+[input]
+path=./assets
+
+[output]
+path=./pages
+```
+
+- **input.path**: The directory containing your asset structure.
+- **output.path**: The directory where the Markdown pages will be generated.
 
 ## License
 
