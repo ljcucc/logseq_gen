@@ -34,10 +34,7 @@ func TestGenerator(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a test template
-	templateContent := `properties:
-{{- range $key, $value := .Properties }}
-{{ $key }}:: {{ $value }}
-{{- end }}`
+	templateContent := `Template content for {{ .CurrentPath }}`
 	templatePath := filepath.Join(cfg.TemplateDir, "test.template")
 	err = os.WriteFile(templatePath, []byte(templateContent), 0644)
 	require.NoError(t, err)
@@ -75,12 +72,13 @@ t.Run("builds pages from ini files", func(t *testing.T) {
 		// Normalize newlines for comparison
 		expectedContent := strings.Join([]string{
 			"generated:: true",
-			"properties:",
 			"key1:: value1",
 			"key2:: value2",
+			"",
+			"Template content for test_category",
 		}, "\n")
 
-		assert.Equal(t, expectedContent, strings.ReplaceAll(string(content), "\r\n", "\n"))
+		assert.Equal(t, expectedContent, strings.TrimSpace(strings.ReplaceAll(string(content), "\r\n", "\n")))
 	})
 
 	// --- Test Clear ---

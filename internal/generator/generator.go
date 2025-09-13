@@ -156,6 +156,15 @@ func (g *Generator) processIniFile(iniPath string) {
 }
 
 func (g *Generator) processWithTemplate(iniPath string, cfg *ini.File, templateName string, outputContent *strings.Builder) {
+	// First, write the properties, similar to processWithoutTemplate
+	propsSection := cfg.Section("properties")
+	for _, key := range propsSection.KeyStrings() {
+		value := propsSection.Key(key).String()
+		outputContent.WriteString(fmt.Sprintf("%s:: %s\n", key, value))
+	}
+	outputContent.WriteString("\n")
+
+	// Then, process the template
 	tmpl, err := g.getTemplate(templateName)
 	if err != nil {
 		log.Printf("[SKIP] Could not get template %s: %v", templateName, err)
@@ -179,8 +188,7 @@ func (g *Generator) processWithTemplate(iniPath string, cfg *ini.File, templateN
 	}
 
 	var renderedTemplate bytes.Buffer
-	if err := tmpl.Execute(&renderedTemplate, data);
-		err != nil {
+	if err := tmpl.Execute(&renderedTemplate, data); err != nil {
 		log.Printf("[SKIP] Could not execute template for %s: %v", iniPath, err)
 		return
 	}
