@@ -1,4 +1,4 @@
 generated:: true
-{{ embed [[xxx/yyy/aaa]] }}
+{{embed [[xxx/yyy/aaa/content]]}}
 
 !!!
