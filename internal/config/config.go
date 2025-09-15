@@ -16,6 +16,8 @@ const (
 	DefaultPagesDir = "pages"
 	// DefaultTemplateDir is the default directory for templates.
 	DefaultTemplateDir = "templates"
+	// DefaultSchemaDir is the default directory for schemas.
+	DefaultSchemaDir = "schemas"
 )
 
 // Config holds the application configuration.
@@ -23,6 +25,7 @@ type Config struct {
 	AssetsDir   string
 	PagesDir    string
 	TemplateDir string
+	SchemaDir   string
 	ProjectRoot string
 }
 
@@ -42,6 +45,7 @@ func Load() (*Config, error) {
 			AssetsDir:   DefaultAssetsDir,
 			PagesDir:    DefaultPagesDir,
 			TemplateDir: DefaultTemplateDir,
+			SchemaDir:   DefaultSchemaDir,
 			ProjectRoot: wd,
 		}, nil
 	}
@@ -55,6 +59,7 @@ func Load() (*Config, error) {
 	inputPath := cfg.Section("input").Key("path").String()
 	outputPath := cfg.Section("output").Key("path").String()
 	templatePath := cfg.Section("template").Key("path").String()
+	schemaPath := cfg.Section("schema").Key("path").String()
 
 	if inputPath == "" || outputPath == "" || templatePath == "" {
 		return nil, fmt.Errorf("input.path, output.path, or template.path not set in %s", iniPath)
@@ -64,6 +69,7 @@ func Load() (*Config, error) {
 		AssetsDir:   filepath.Join(projectRoot, inputPath),
 		PagesDir:    filepath.Join(projectRoot, outputPath),
 		TemplateDir: filepath.Join(projectRoot, templatePath),
+		SchemaDir:   filepath.Join(projectRoot, schemaPath),
 		ProjectRoot: projectRoot,
 	}, nil
 }

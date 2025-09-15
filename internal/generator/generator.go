@@ -14,6 +14,7 @@ import (
 	"gopkg.in/ini.v1"
 
 	"logseq_gen/internal/config"
+	"logseq_gen/internal/schema"
 )
 
 const generatedMarker = "generated:: true"
@@ -22,6 +23,7 @@ const generatedMarker = "generated:: true"
 type Generator struct {
 	config        *config.Config
 	templateCache map[string]*template.Template
+	schemaCache   map[string]*schema.Schema
 }
 
 // New creates a new Generator.
@@ -29,6 +31,7 @@ func New(cfg *config.Config) *Generator {
 	return &Generator{
 		config:        cfg,
 		templateCache: make(map[string]*template.Template),
+		schemaCache:   make(map[string]*schema.Schema),
 	}
 }
 
@@ -126,11 +129,9 @@ func (g *Generator) processIniFile(iniPath string) {
 
 	var outputContent strings.Builder
 
-	g.processFile(iniPath, cfg, &outputContent)
-	// if templateName != "" {
-	// 	g.processWithTemplate(iniPath, cfg, templateName, &outputContent)
-	// } else {
-	// }
+	if shouldSkip := g.processFile(iniPath, cfg, &outputContent); shouldSkip {
+		return
+	}
 
 	relPath, err := filepath.Rel(g.config.AssetsDir, filepath.Dir(iniPath))
 	if err != nil {
@@ -138,9 +139,10 @@ func (g *Generator) processIniFile(iniPath string) {
 		return
 	}
 
-	outputFilenameBase := "index"
-	if relPath != "." {
-		outputFilenameBase = strings.ReplaceAll(relPath, string(os.PathSeparator), "___")
+
+	outputFilenameBase := strings.ReplaceAll(relPath, string(os.PathSeparator), "___")
+	if outputFilenameBase == "." {
+		outputFilenameBase = "index"
 	}
 	outputFilepath := filepath.Join(g.config.PagesDir, fmt.Sprintf("%s.md", outputFilenameBase))
 
@@ -152,7 +154,7 @@ func (g *Generator) processIniFile(iniPath string) {
 	fmt.Printf("-> Generated %s\n", outputFilepath)
 }
 
-func (g *Generator) processWithTemplate(iniPath string, cfg *ini.File, templateName string, outputContent *strings.Builder) {
+func (g *Generator) processWithTemplate(iniPath string, cfg *ini.File, templateName string, props map[string]string, outputContent *strings.Builder) {
 	// Then, process the template
 	tmpl, err := g.getTemplate(templateName)
 	if err != nil {
@@ -173,7 +175,7 @@ func (g *Generator) processWithTemplate(iniPath string, cfg *ini.File, templateN
 		Properties  map[string]string
 	}{
 		CurrentPath: currentPath,
-		Properties:  cfg.Section("properties").KeysHash(),
+		Properties:  props,
 	}
 
 	var renderedTemplate bytes.Buffer
@@ -184,32 +186,47 @@ func (g *Generator) processWithTemplate(iniPath string, cfg *ini.File, templateN
 	outputContent.WriteString(renderedTemplate.String())
 }
 
-func (g *Generator) processFile(iniPath string, cfg *ini.File, outputContent *strings.Builder) {
-	propsSection := cfg.Section("properties")
-	for _, key := range propsSection.KeyStrings() {
-		value := propsSection.Key(key).String()
+func (g *Generator) processFile(iniPath string, cfg *ini.File, outputContent *strings.Builder) (shouldSkip bool) {
+	props := cfg.Section("properties").KeysHash()
+	headerSection := cfg.Section("header")
+
+	if headerSection.HasKey("schema") {
+		schemaName := headerSection.Key("schema").String()
+		s, err := g.getSchema(schemaName)
+		if err != nil {
+			log.Printf("[SKIP] Schema '%s' not found or invalid: %v", schemaName, err)
+			return true
+		}
+		props, err = s.ValidateAndTransform(props)
+		if err != nil {
+			log.Printf("[SKIP] Validation failed for %s: %v", iniPath, err)
+			return true
+		}
+	}
+
+	for key, value := range props {
 		outputContent.WriteString(fmt.Sprintf("%s:: %s\n", key, value))
 	}
 	outputContent.WriteString("\n")
 
-	headerSection := cfg.Section("header")
 	if headerSection.HasKey("template") {
-		templateName := cfg.Section("header").Key("template").String()
-		g.processWithTemplate(iniPath, cfg, templateName, outputContent)
+		templateName := headerSection.Key("template").String()
+		g.processWithTemplate(iniPath, cfg, templateName, props, outputContent)
 	} else if headerSection.HasKey("content") {
 		contentFilename := strings.Trim(headerSection.Key("content").String(), "\"")
 		contentFilepath := filepath.Join(filepath.Dir(iniPath), contentFilename)
 		if _, err := os.Stat(contentFilepath); os.IsNotExist(err) {
 			log.Printf("[SKIP] Content file '%s' not found.", contentFilepath)
-			return
+			return true
 		}
 		content, err := os.ReadFile(contentFilepath)
 		if err != nil {
 			log.Printf("[SKIP] Could not read content file %s: %v", contentFilepath, err)
-			return
+			return true
 		}
 		outputContent.Write(content)
 	}
+	return false
 }
 
 // getTemplate retrieves a template from cache or parses it from file.
@@ -231,4 +248,24 @@ func (g *Generator) getTemplate(name string) (*template.Template, error) {
 
 	g.templateCache[name] = tmpl
 	return tmpl, nil
+}
+
+// getSchema retrieves a schema from cache or loads it from file.
+func (g *Generator) getSchema(name string) (*schema.Schema, error) {
+	if s, ok := g.schemaCache[name]; ok {
+		return s, nil
+	}
+
+	schemaFile := filepath.Join(g.config.SchemaDir, fmt.Sprintf("%s.yaml", name))
+	if _, err := os.Stat(schemaFile); os.IsNotExist(err) {
+		schemaFile = filepath.Join(g.config.SchemaDir, fmt.Sprintf("%s.json", name))
+	}
+
+	s, err := schema.LoadSchema(schemaFile)
+	if err != nil {
+		return nil, err
+	}
+
+	g.schemaCache[name] = s
+	return s, nil
 }

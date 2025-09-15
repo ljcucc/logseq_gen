@@ -1,0 +1,45 @@
+version: 1
+types:
+  # "required" will only working when "default" is nil. default will disbale/overwrite the settings of required.
+  property_a:
+    required: true
+    type: number
+
+  # if property_a is nil, there's no fallback value, so generate will skip (thrown error)
+  property_b:
+    required: false
+    type: number
+
+  # if the property_c is nil, and property_c will fallback to value 3c, ignored the required.
+  property_c:
+    required: false
+    type: string
+    default: 3c
+
+  # if property_d is nil, the value will set to false, ignore the required.
+  property_d:
+    required: true
+    type: boolean
+    default: false
+
+  # property_e's value will automatically replaced by the display of each enum-key.
+  property_e:
+    required: true
+    type: enum
+    keys: # enum-key
+      num_1:
+        display: Number 1
+
+      num_2:
+        display: Number 2
+
+      num_3:
+        display: Number 3
+
+  # for example a property_e=num_1 in ini file, in markdown file it'll be
+  # [[property_e/Number 1]]
+
+  # ini: property_f=2025-09-21
+  # md: property_f:: [[2025-09-21]]
+  property_f:
+    type: date

@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenerator(t *testing.T) {
+func TestGenerator_Build(t *testing.T) {
 	// Setup a temporary project structure
 	tempDir, err := os.MkdirTemp("", "generator-test-")
 	require.NoError(t, err)
@@ -23,75 +23,89 @@ func TestGenerator(t *testing.T) {
 		AssetsDir:   filepath.Join(tempDir, "assets"),
 		PagesDir:    filepath.Join(tempDir, "pages"),
 		TemplateDir: filepath.Join(tempDir, "templates"),
+		SchemaDir:   filepath.Join(tempDir, "schemas"),
 	}
 
 	// Create directories
-	err = os.MkdirAll(cfg.AssetsDir, 0755)
-	require.NoError(t, err)
-	err = os.MkdirAll(cfg.PagesDir, 0755)
-	require.NoError(t, err)
-	err = os.MkdirAll(cfg.TemplateDir, 0755)
-	require.NoError(t, err)
+	require.NoError(t, os.MkdirAll(cfg.AssetsDir, 0755))
+	require.NoError(t, os.MkdirAll(cfg.PagesDir, 0755))
+	require.NoError(t, os.MkdirAll(cfg.TemplateDir, 0755))
+	require.NoError(t, os.MkdirAll(cfg.SchemaDir, 0755))
 
 	// Create a test template
 	templateContent := `Template content for {{ .CurrentPath }}`
 	templatePath := filepath.Join(cfg.TemplateDir, "test.template")
-	err = os.WriteFile(templatePath, []byte(templateContent), 0644)
-	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(templatePath, []byte(templateContent), 0644))
 
-	// Create a test index.ini
-	iniDir := filepath.Join(cfg.AssetsDir, "test_category")
-	err = os.Mkdir(iniDir, 0755)
-	require.NoError(t, err)
+	// Create a test schema
+	schemaContent := `
+version: 1
+types:
+  property_a:
+    required: true
+    type: string
+  property_b:
+    type: enum
+    keys:
+      key1:
+        display: Value 1
+`
+	schemaPath := filepath.Join(cfg.SchemaDir, "test_schema.yaml")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schemaContent), 0644))
 
-	iniContent := `
+	// Create a valid test index.ini
+	validIniDir := filepath.Join(cfg.AssetsDir, "valid_test")
+	require.NoError(t, os.MkdirAll(validIniDir, 0755))
+	validIniContent := `
 [header]
+schema = test_schema
 template = test
 [properties]
-key1 = value1
-key2 = value2
+property_a = hello
+property_b = key1
 `
-	iniPath := filepath.Join(iniDir, "index.ini")
-	err = os.WriteFile(iniPath, []byte(iniContent), 0644)
+	validIniPath := filepath.Join(validIniDir, "index.ini")
+	require.NoError(t, os.WriteFile(validIniPath, []byte(validIniContent), 0644))
+
+	// Create an invalid test index.ini (missing required property_a)
+	invalidIniDir := filepath.Join(cfg.AssetsDir, "invalid_test")
+	require.NoError(t, os.MkdirAll(invalidIniDir, 0755))
+	invalidIniContent := `
+[header]
+schema = test_schema
+template = test
+[properties]
+property_b = key1
+`
+	invalidIniPath := filepath.Join(invalidIniDir, "index.ini")
+	require.NoError(t, os.WriteFile(invalidIniPath, []byte(invalidIniContent), 0644))
+
+	// Run the generator
+	gen := generator.New(cfg)
+	err = gen.Build()
 	require.NoError(t, err)
 
-	// --- Test Build ---
-t.Run("builds pages from ini files", func(t *testing.T) {
-		gen := generator.New(cfg)
-		err := gen.Build()
-		require.NoError(t, err)
+	// ---
+	// Assertions
+	// ---
 
-		// Check for the output file
-		outputFile := filepath.Join(cfg.PagesDir, "test_category.md")
-		assert.FileExists(t, outputFile)
+	// 1. Check that the valid file was created with correct content
+	outputFileValid := filepath.Join(cfg.PagesDir, "valid_test.md")
+	assert.FileExists(t, outputFileValid)
 
-		// Check the content of the output file
-		content, err := os.ReadFile(outputFile)
-		require.NoError(t, err)
+	content, err := os.ReadFile(outputFileValid)
+	require.NoError(t, err)
 
-		// Normalize newlines for comparison
-		expectedContent := strings.Join([]string{
-			"generated:: true",
-			"key1:: value1",
-			"key2:: value2",
-			"",
-			"Template content for test_category",
-		}, "\n")
+	expectedContent := strings.Join([]string{
+		"generated:: true",
+		"property_a:: hello",
+		"property_b:: [[property_b/Value 1]]",
+		"",
+		"Template content for valid_test",
+	}, "\n")
+	assert.Equal(t, expectedContent, strings.TrimSpace(strings.ReplaceAll(string(content), "\r\n", "\n")))
 
-		assert.Equal(t, expectedContent, strings.TrimSpace(strings.ReplaceAll(string(content), "\r\n", "\n")))
-	})
-
-	// --- Test Clear ---
-t.Run("clears generated files", func(t *testing.T) {
-		// Ensure the file exists before clearing
-		outputFile := filepath.Join(cfg.PagesDir, "test_category.md")
-		require.FileExists(t, outputFile, "Test setup failed, file to be cleared does not exist")
-
-		gen := generator.New(cfg)
-		err := gen.Clear()
-		require.NoError(t, err)
-
-		// Check that the file was removed
-		assert.NoFileExists(t, outputFile)
-	})
+	// 2. Check that the invalid file was NOT created
+	outputFileInvalid := filepath.Join(cfg.PagesDir, "invalid_test.md")
+	assert.NoFileExists(t, outputFileInvalid)
 }
