@@ -11,17 +11,17 @@ import (
 
 // Schema represents the structure of a schema file.
 type Schema struct {
-	Version int               `yaml:"version"`
-	Types   map[string]Type   `yaml:"types"`
+	Version int             `yaml:"version"`
+	Types   map[string]Type `yaml:"types"`
 }
 
 // Type represents the type definition for a property.
 type Type struct {
-	Required bool              `yaml:"required"`
-	Type     string            `yaml:"type"`
-	Default  interface{}       `yaml:"default"`
+	Required bool               `yaml:"required"`
+	Type     string             `yaml:"type"`
+	Default  interface{}        `yaml:"default"`
 	Keys     map[string]EnumKey `yaml:"keys"`
-	Schema   string            `yaml:"schema"`
+	Schema   string             `yaml:"schema"`
 }
 
 // EnumKey represents a key in an enum.

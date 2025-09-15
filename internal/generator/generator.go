@@ -187,7 +187,13 @@ func (g *Generator) processWithTemplate(iniPath string, cfg *ini.File, templateN
 }
 
 func (g *Generator) processFile(iniPath string, cfg *ini.File, outputContent *strings.Builder) (shouldSkip bool) {
-	props := cfg.Section("properties").KeysHash()
+	propertiesSection := cfg.Section("properties")
+	orderedKeys := propertiesSection.KeyStrings()
+	props := make(map[string]string)
+	for _, key := range orderedKeys {
+		props[key] = propertiesSection.Key(key).String()
+	}
+
 	headerSection := cfg.Section("header")
 
 	if headerSection.HasKey("schema") {
@@ -197,13 +203,23 @@ func (g *Generator) processFile(iniPath string, cfg *ini.File, outputContent *st
 			log.Printf("[SKIP] Schema '%s' not found or invalid: %v", schemaName, err)
 			return true
 		}
-		props, err = s.ValidateAndTransform(props)
+
+		transformedProps, err := s.ValidateAndTransform(props)
 		if err != nil {
 			log.Printf("[SKIP] Validation failed for %s: %v", iniPath, err)
 			return true
 		}
+		props = transformedProps
 	}
 
+	for _, key := range orderedKeys {
+		if value, ok := props[key]; ok {
+			outputContent.WriteString(fmt.Sprintf("%s:: %s\n", key, value))
+			delete(props, key) // Remove the key to handle remaining new properties
+		}
+	}
+
+	// Append any new properties added by the schema (e.g., defaults)
 	for key, value := range props {
 		outputContent.WriteString(fmt.Sprintf("%s:: %s\n", key, value))
 	}

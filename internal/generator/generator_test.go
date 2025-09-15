@@ -109,3 +109,73 @@ property_b = key1
 	outputFileInvalid := filepath.Join(cfg.PagesDir, "invalid_test.md")
 	assert.NoFileExists(t, outputFileInvalid)
 }
+
+func TestGenerator_Build_Order(t *testing.T) {
+	// Setup
+	tempDir, err := os.MkdirTemp("", "generator-test-")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// Create test directories
+	assetsDir := filepath.Join(tempDir, "assets")
+	schemasDir := filepath.Join(tempDir, "schemas")
+	pagesDir := filepath.Join(tempDir, "pages")
+	require.NoError(t, os.MkdirAll(assetsDir, 0755))
+	require.NoError(t, os.MkdirAll(schemasDir, 0755))
+	require.NoError(t, os.MkdirAll(pagesDir, 0755))
+
+	// Create test INI file
+	iniContent := "[header]\n" +
+		"schema = test_order\n" +
+		"\n" +
+		"[properties]\n" +
+		"prop_c = value_c\n" +
+		"prop_a = value_a\n" +
+		"prop_b = value_b\n"
+	iniDir := filepath.Join(assetsDir, "test_order")
+	require.NoError(t, os.MkdirAll(iniDir, 0755))
+	iniPath := filepath.Join(iniDir, "index.ini")
+	require.NoError(t, os.WriteFile(iniPath, []byte(iniContent), 0644))
+
+	// Create test schema file
+	schemaContent := "version: 1\n" +
+		"types:\n" +
+		"  prop_d:\n" +
+		"    type: string\n" +
+		"    default: value_d\n" +
+		"  prop_a:\n" +
+		"    type: string\n" +
+		"  prop_b:\n" +
+		"    type: string\n" +
+		"  prop_c:\n" +
+		"    type: string\n"
+	schemaPath := filepath.Join(schemasDir, "test_order.yaml")
+	require.NoError(t, os.WriteFile(schemaPath, []byte(schemaContent), 0644))
+
+	// Create config
+	cfg := &config.Config{
+		AssetsDir:   assetsDir,
+		PagesDir:    pagesDir,
+		SchemaDir:   schemasDir,
+		TemplateDir: "", // Not used in this test
+	}
+
+	// Run generator
+	gen := generator.New(cfg)
+	err = gen.Build()
+	require.NoError(t, err)
+
+	// Check output
+	outputFilepath := filepath.Join(pagesDir, "test_order.md")
+	outputContent, err := os.ReadFile(outputFilepath)
+	require.NoError(t, err)
+
+	expectedContent := "generated:: true\n" +
+		"prop_c:: value_c\n" +
+		"prop_a:: value_a\n" +
+		"prop_b:: value_b\n" +
+		"prop_d:: value_d\n" +
+		"\n"
+
+	require.Equal(t, expectedContent, string(outputContent))
+}
