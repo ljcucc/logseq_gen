@@ -20,14 +20,14 @@ const generatedMarker = "generated:: true"
 
 // Generator manages the file generation process.
 type Generator struct {
-	config       *config.Config
+	config        *config.Config
 	templateCache map[string]*template.Template
 }
 
 // New creates a new Generator.
 func New(cfg *config.Config) *Generator {
 	return &Generator{
-		config:       cfg,
+		config:        cfg,
 		templateCache: make(map[string]*template.Template),
 	}
 }
@@ -37,8 +37,7 @@ func (g *Generator) Build() error {
 	if err := g.Clear(); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(g.config.PagesDir, 0755);
-		err != nil {
+	if err := os.MkdirAll(g.config.PagesDir, 0755); err != nil {
 		return fmt.Errorf("could not create pages directory: %w", err)
 	}
 
@@ -126,13 +125,12 @@ func (g *Generator) processIniFile(iniPath string) {
 	}
 
 	var outputContent strings.Builder
-	templateName := cfg.Section("header").Key("template").String()
 
-	if templateName != "" {
-		g.processWithTemplate(iniPath, cfg, templateName, &outputContent)
-	} else {
-		g.processWithoutTemplate(iniPath, cfg, &outputContent)
-	}
+	g.processFile(iniPath, cfg, &outputContent)
+	// if templateName != "" {
+	// 	g.processWithTemplate(iniPath, cfg, templateName, &outputContent)
+	// } else {
+	// }
 
 	relPath, err := filepath.Rel(g.config.AssetsDir, filepath.Dir(iniPath))
 	if err != nil {
@@ -147,8 +145,7 @@ func (g *Generator) processIniFile(iniPath string) {
 	outputFilepath := filepath.Join(g.config.PagesDir, fmt.Sprintf("%s.md", outputFilenameBase))
 
 	finalContent := generatedMarker + "\n" + outputContent.String()
-	if err := os.WriteFile(outputFilepath, []byte(finalContent), 0644);
-		err != nil {
+	if err := os.WriteFile(outputFilepath, []byte(finalContent), 0644); err != nil {
 		log.Printf("[SKIP] Could not write file %s: %v", outputFilepath, err)
 		return
 	}
@@ -156,14 +153,6 @@ func (g *Generator) processIniFile(iniPath string) {
 }
 
 func (g *Generator) processWithTemplate(iniPath string, cfg *ini.File, templateName string, outputContent *strings.Builder) {
-	// First, write the properties, similar to processWithoutTemplate
-	propsSection := cfg.Section("properties")
-	for _, key := range propsSection.KeyStrings() {
-		value := propsSection.Key(key).String()
-		outputContent.WriteString(fmt.Sprintf("%s:: %s\n", key, value))
-	}
-	outputContent.WriteString("\n")
-
 	// Then, process the template
 	tmpl, err := g.getTemplate(templateName)
 	if err != nil {
@@ -195,7 +184,7 @@ func (g *Generator) processWithTemplate(iniPath string, cfg *ini.File, templateN
 	outputContent.WriteString(renderedTemplate.String())
 }
 
-func (g *Generator) processWithoutTemplate(iniPath string, cfg *ini.File, outputContent *strings.Builder) {
+func (g *Generator) processFile(iniPath string, cfg *ini.File, outputContent *strings.Builder) {
 	propsSection := cfg.Section("properties")
 	for _, key := range propsSection.KeyStrings() {
 		value := propsSection.Key(key).String()
@@ -204,7 +193,10 @@ func (g *Generator) processWithoutTemplate(iniPath string, cfg *ini.File, output
 	outputContent.WriteString("\n")
 
 	headerSection := cfg.Section("header")
-	if headerSection.HasKey("content") {
+	if headerSection.HasKey("template") {
+		templateName := cfg.Section("header").Key("template").String()
+		g.processWithTemplate(iniPath, cfg, templateName, outputContent)
+	} else if headerSection.HasKey("content") {
 		contentFilename := strings.Trim(headerSection.Key("content").String(), "\"")
 		contentFilepath := filepath.Join(filepath.Dir(iniPath), contentFilename)
 		if _, err := os.Stat(contentFilepath); os.IsNotExist(err) {
