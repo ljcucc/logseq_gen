@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -81,11 +82,21 @@ func (s *Schema) ValidateAndTransform(record map[string]string) (map[string]stri
 		case "string":
 			// No validation needed for string type
 		case "enum":
-			if enumKey, ok := typeDef.Keys[value]; ok {
-				result[key] = fmt.Sprintf("[[%s/%s]]", key, enumKey.Display)
-			} else {
-				return nil, fmt.Errorf("property '%s' with value '%s' is not a valid enum key", key, value)
+			values := strings.Split(value, ",")
+			var transformedValues []string
+			for _, v := range values {
+				trimmedValue := strings.TrimSpace(v)
+				if enumKey, ok := typeDef.Keys[trimmedValue]; ok {
+					displayValue := enumKey.Display
+					if displayValue == "" {
+						displayValue = trimmedValue
+					}
+					transformedValues = append(transformedValues, fmt.Sprintf("[[%s/%s]]", key, displayValue))
+				} else {
+					return nil, fmt.Errorf("property '%s' with value '%s' contains an invalid enum key: %s", key, value, trimmedValue)
+				}
 			}
+			result[key] = strings.Join(transformedValues, " ")
 		case "link":
 			// In a real-world scenario, you might want to validate the link format.
 			// For now, we just check if it's a string.

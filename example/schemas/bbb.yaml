@@ -36,6 +36,8 @@ types:
       num_3:
         display: Number 3
 
+      num_4:
+
   # for example a property_e=num_1 in ini file, in markdown file it'll be
   # [[property_e/Number 1]]
 
